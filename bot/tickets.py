@@ -211,6 +211,10 @@ class TicketCog(commands.Cog):
         self.db = database
         self.service = service
         self.transcript = transcript
+
+    async def cog_load(self) -> None:
+        # add_cog() runs inside discord.py's active event loop. Starting the
+        # background task here avoids "RuntimeError: no running event loop".
         self.cleanup_expired.start()
 
     def cog_unload(self) -> None:
