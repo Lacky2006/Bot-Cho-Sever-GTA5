@@ -1,6 +1,6 @@
 # V Roleplay Community Bot
 
-Bot Discord Python theo OOP dành cho server GTA5 Roleplay. Bot tự tạo kênh chào mừng/tạm biệt, danh mục hỗ trợ, panel ticket có nút và trang transcript HTML xem trực tuyến.
+Bot Discord Python theo OOP dành cho server GTA5 Roleplay. Bot tự tạo kênh chào mừng/tạm biệt, danh mục hỗ trợ và panel ticket có nút. Transcript được lưu thành file HTML trên VPS.
 
 ## Tính năng
 
@@ -13,9 +13,8 @@ Bot Discord Python theo OOP dành cho server GTA5 Roleplay. Bot tự tạo kênh
 - Khi bot khởi động, bot cấp role `New Citizen` cho thành viên hiện có; thành viên mới cũng nhận role này tự động (`NEW_CITIZEN_ROLE_ID`).
 - `+cl`: chủ ticket hoặc nhân viên hỗ trợ được đóng ticket. Kênh chuyển sang danh mục đã đóng và bị khóa với người mở.
 - `+delete`: chỉ admin/role hỗ trợ được xóa kênh ticket ngay.
-- Transcript HTML hiển thị biệt danh trong server, avatar, nội dung và ảnh/file đính kèm đã lưu cục bộ.
-- Link transcript có mã ngẫu nhiên khó đoán, xem bằng ngrok hoặc IP/domain VPS.
-- Ticket đã đóng và transcript tự xóa sau 15 ngày (có thể đổi trong `.env`).
+- Transcript HTML hiển thị biệt danh trong server, avatar, nội dung và ảnh/file đính kèm đã lưu trong cùng thư mục.
+- Transcript được lưu trong `data/transcripts/` trên VPS; ticket đã đóng, file HTML, ảnh và file đính kèm tự xóa sau 15 ngày (có thể đổi bằng `TRANSCRIPT_RETENTION_DAYS` trong `.env`).
 
 ## 1. Tạo bot Discord
 
@@ -41,7 +40,6 @@ RULES_URL=link_kenh_luat
 WHITELIST_URL=link_kenh_whitelist
 WELCOME_IMAGE_URL=https://domain/banner-welcome.png
 TICKET_IMAGE_URL=https://domain/banner-ticket.png
-PUBLIC_BASE_URL=https://dia-chi-cong-khai
 ```
 
 Để lấy ID role: bật Developer Mode trong Discord, bấm phải role **Hỗ trợ**, **Citizen** hoặc **New Citizen** rồi chọn **Copy Role ID**. Role bot cần nằm cao hơn cả hai role Citizen để cấp role. Bật `SERVER MEMBERS INTENT` để bot nhận thành viên mới và đồng bộ role thành viên hiện có. Không đưa file `.env` lên GitHub.
@@ -66,15 +64,6 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## 4. Link xem transcript
-
-Web log chạy ở cổng `8080`. Có hai cách:
-
-- VPS: mở firewall cổng 8080 và đặt `PUBLIC_BASE_URL=http://IP_VPS:8080` (nên dùng domain + HTTPS qua Nginx/Caddy khi chạy thật).
-- Máy cá nhân + ngrok: chạy `ngrok http 8080`, rồi đặt URL HTTPS ngrok vào `PUBLIC_BASE_URL` và khởi động lại bot.
-
-Không điền URL API của Grok AI; thứ cần dùng ở đây là URL tunnel của **ngrok** hoặc IP/domain VPS.
-
 ## Chạy bằng Docker
 
 ```bash
@@ -82,7 +71,7 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
-Dữ liệu SQLite, transcript và ảnh được giữ trong thư mục `data/`. Hãy sao lưu thư mục này nếu chuyển VPS.
+Dữ liệu SQLite, transcript HTML và ảnh được giữ trong thư mục `data/` trên VPS. Bot không mở cổng web xem transcript. Muốn đọc log, mở file `data/transcripts/<mã-ticket>/index.html` trên VPS hoặc tải thư mục đó về máy. Hãy sao lưu thư mục `data/` nếu chuyển VPS.
 
 ## Quyền lệnh
 

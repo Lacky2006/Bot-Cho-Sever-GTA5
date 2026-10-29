@@ -279,8 +279,8 @@ class TicketCog(commands.Cog):
             reason=f"Đóng ticket bởi {ctx.author}",
         )
         await ctx.send(
-            f"🔒 Ticket đã đóng bởi {ctx.author.mention}. Log sẽ được giữ {self.config.retention_days} ngày.\n"
-            f"Xem log: {self.transcript.url(ticket['slug'])}"
+            f"🔒 Ticket đã đóng bởi {ctx.author.mention}. Transcript HTML được lưu trên VPS "
+            f"{self.config.retention_days} ngày tại `data/transcripts/{ticket['slug']}/index.html`."
         )
         await self._send_log(ctx.guild, ticket, ctx.author, "Đã đóng")
 
@@ -317,7 +317,11 @@ class TicketCog(commands.Cog):
         embed.add_field(name="Người tạo", value=owner_name)
         embed.add_field(name="Loại", value=ticket["ticket_type"])
         embed.add_field(name="Thực hiện bởi", value=actor.display_name)
-        embed.add_field(name="Transcript", value=f"[Xem log trực tuyến]({self.transcript.url(ticket['slug'])})", inline=False)
+        embed.add_field(
+            name="Transcript HTML trên VPS",
+            value=f"`data/transcripts/{ticket['slug']}/index.html`\nTự xóa sau {self.config.retention_days} ngày.",
+            inline=False,
+        )
         message = await channel.send(embed=embed)
         await self.db.execute("UPDATE tickets SET log_message_id = ? WHERE channel_id = ?", (message.id, ticket["channel_id"]))
 

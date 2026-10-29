@@ -12,7 +12,6 @@ from bot.events import CommunityEvents
 from bot.setup_service import GuildSetupService
 from bot.tickets import TicketCog, TicketPanelView, TicketService
 from bot.transcript import TranscriptService
-from bot.web_server import TranscriptWebServer
 
 
 class VRoleplayBot(commands.Bot):
@@ -29,7 +28,6 @@ class VRoleplayBot(commands.Bot):
         self.config = config
         self.database = Database(config.database_path)
         self.transcripts = TranscriptService(config)
-        self.web = TranscriptWebServer(config)
         self.tickets = TicketService(self, config, self.database, self.transcripts)
         self.panel_view = TicketPanelView(self.tickets)
         self.guild_setup = GuildSetupService(self, config, self.database)
@@ -44,7 +42,6 @@ class VRoleplayBot(commands.Bot):
         await restore_citizen_views(self, self.citizen)
         await self.add_cog(self.community_events)
         await self.add_cog(TicketCog(self, self.config, self.database, self.tickets, self.transcripts))
-        await self.web.start()
 
     async def on_ready(self) -> None:
         if self.user is None:
@@ -94,11 +91,6 @@ class VRoleplayBot(commands.Bot):
             return
         logging.getLogger(__name__).exception("Lỗi lệnh %s", ctx.command, exc_info=error)
         await ctx.reply("Có lỗi xảy ra khi chạy lệnh. Hãy kiểm tra log của bot.", mention_author=False)
-
-    async def close(self) -> None:
-        await self.web.stop()
-        await super().close()
-
 
 def main() -> None:
     logging.basicConfig(

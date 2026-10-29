@@ -28,9 +28,6 @@ class Config:
     whitelist_url: str
     welcome_image_url: str
     ticket_image_url: str
-    public_base_url: str
-    web_host: str
-    web_port: int
     retention_days: int
     max_attachment_bytes: int
     command_prefix: str
@@ -67,9 +64,6 @@ class Config:
             whitelist_url=os.getenv("WHITELIST_URL", "").strip(),
             welcome_image_url=os.getenv("WELCOME_IMAGE_URL", "").strip(),
             ticket_image_url=os.getenv("TICKET_IMAGE_URL", "").strip(),
-            public_base_url=os.getenv("PUBLIC_BASE_URL", "http://127.0.0.1:8080").rstrip("/"),
-            web_host=os.getenv("WEB_HOST", "0.0.0.0").strip(),
-            web_port=_int_env("WEB_PORT", 8080),
             retention_days=max(1, _int_env("TRANSCRIPT_RETENTION_DAYS", 15)),
             max_attachment_bytes=max(1, _int_env("MAX_ATTACHMENT_MB", 25)) * 1024 * 1024,
             command_prefix=os.getenv("COMMAND_PREFIX", "+").strip() or "+",
