@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 import discord
 from discord.ext import commands
 
@@ -7,11 +9,26 @@ from .config import Config
 from .database import Database
 
 
+log = logging.getLogger(__name__)
+
+
 class CommunityEvents(commands.Cog):
     def __init__(self, bot: commands.Bot, config: Config, database: Database) -> None:
         self.bot = bot
         self.config = config
         self.db = database
+
+    @commands.Cog.listener()
+    async def on_interaction(self, interaction: discord.Interaction) -> None:
+        if interaction.type is discord.InteractionType.component:
+            custom_id = interaction.data.get("custom_id", "unknown") if interaction.data else "unknown"
+            log.info(
+                "Đã nhận tương tác nút: custom_id=%s user_id=%s guild_id=%s channel_id=%s",
+                custom_id,
+                interaction.user.id,
+                interaction.guild_id,
+                interaction.channel_id,
+            )
 
     async def assign_new_citizen_role(self, member: discord.Member) -> None:
         role = member.guild.get_role(self.config.new_citizen_role_id)
