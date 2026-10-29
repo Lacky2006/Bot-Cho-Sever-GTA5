@@ -12,6 +12,7 @@ from bot.events import CommunityEvents
 from bot.setup_service import GuildSetupService
 from bot.tickets import TicketCog, TicketPanelView, TicketService
 from bot.transcript import TranscriptService
+from bot.web_server import TranscriptWebServer
 
 
 class VRoleplayBot(commands.Bot):
@@ -28,6 +29,7 @@ class VRoleplayBot(commands.Bot):
         self.config = config
         self.database = Database(config.database_path)
         self.transcripts = TranscriptService(config)
+        self.web = TranscriptWebServer(config)
         self.tickets = TicketService(self, config, self.database, self.transcripts)
         self.panel_view = TicketPanelView(self.tickets)
         self.guild_setup = GuildSetupService(self, config, self.database)
@@ -43,6 +45,7 @@ class VRoleplayBot(commands.Bot):
         await restore_citizen_views(self, self.citizen)
         await self.add_cog(self.community_events)
         await self.add_cog(self.ticket_cog)
+        await self.web.start()
 
     async def on_ready(self) -> None:
         if self.user is None:
@@ -92,6 +95,10 @@ class VRoleplayBot(commands.Bot):
         await self.guild_setup.ensure_guild(guild, self.panel_view, self.citizen.panel_view)
         await self.ticket_cog.remove_legacy_closed_category(guild)
         await self.assign_new_citizen_to_existing_members(guild)
+
+    async def close(self) -> None:
+        await self.web.stop()
+        await super().close()
 
     async def on_command_error(self, ctx: commands.Context, error: commands.CommandError) -> None:
         if isinstance(error, commands.CommandNotFound):

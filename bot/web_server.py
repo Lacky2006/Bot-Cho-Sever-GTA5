@@ -23,13 +23,15 @@ class TranscriptWebServer:
         app.router.add_get("/logs/{slug}/assets/{filename}", self.asset)
         self.runner = web.AppRunner(app, access_log=None)
         await self.runner.setup()
-        await web.TCPSite(self.runner, self.config.web_host, self.config.web_port).start()
+        site = web.TCPSite(self.runner, self.config.web_host, self.config.web_port)
+        await site.start()
 
     async def stop(self) -> None:
         if self.runner:
             await self.runner.cleanup()
 
-    async def health(self, _: web.Request) -> web.Response:
+    @staticmethod
+    async def health(_: web.Request) -> web.Response:
         return web.Response(text="V Roleplay Bot đang hoạt động", content_type="text/plain")
 
     async def transcript(self, request: web.Request) -> web.StreamResponse:
@@ -49,4 +51,3 @@ class TranscriptWebServer:
         if not path.is_file():
             raise web.HTTPNotFound()
         return web.FileResponse(path, headers={"X-Robots-Tag": "noindex, nofollow"})
-

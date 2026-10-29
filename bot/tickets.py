@@ -303,8 +303,12 @@ class TicketCog(commands.Cog):
         embed.add_field(name="Loại", value=ticket["ticket_type"])
         embed.add_field(name="Thực hiện bởi", value=actor.display_name)
         embed.add_field(
-            name="Transcript HTML trên VPS",
-            value=f"`data/transcripts/{ticket['slug']}/index.html`\nTự xóa sau {self.config.retention_days} ngày.",
+            name="Transcript HTML",
+            value=(
+                f"[Xem log trực tuyến]({self.transcript.url(ticket['slug'])})\n"
+                f"File VPS: `data/transcripts/{ticket['slug']}/index.html`\n"
+                f"Tự xóa sau {self.config.retention_days} ngày."
+            ),
             inline=False,
         )
         message = await channel.send(embed=embed)

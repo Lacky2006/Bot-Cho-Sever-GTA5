@@ -18,6 +18,9 @@ class TranscriptService:
     def __init__(self, config: Config) -> None:
         self.config = config
 
+    def url(self, slug: str) -> str:
+        return f"{self.config.public_base_url}/logs/{slug}/"
+
     async def export(self, channel: discord.TextChannel, slug: str) -> Path:
         target = self.config.transcript_dir / slug
         assets = target / "assets"

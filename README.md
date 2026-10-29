@@ -14,7 +14,7 @@ Bot Discord Python theo OOP dành cho server GTA5 Roleplay. Bot tự tạo kênh
 - `+cl`: chủ ticket hoặc nhân viên hỗ trợ đóng ticket. Bot xuất transcript HTML, ghi vào `#log-ticket`, rồi xóa phòng ticket ngay.
 - `+delete`: chỉ admin/role hỗ trợ được xóa kênh ticket ngay.
 - Transcript HTML hiển thị biệt danh trong server, avatar, nội dung và ảnh/file đính kèm đã lưu trong cùng thư mục.
-- Transcript được lưu trong `data/transcripts/` trên VPS; log Discord, file HTML, ảnh và file đính kèm tự xóa sau 15 ngày (có thể đổi bằng `TRANSCRIPT_RETENTION_DAYS` trong `.env`).
+- Transcript được lưu trong `data/transcripts/` trên VPS và mở công khai qua `PUBLIC_BASE_URL` trên cổng 5000; log Discord, file HTML, ảnh và file đính kèm tự xóa sau 15 ngày (có thể đổi bằng `TRANSCRIPT_RETENTION_DAYS` trong `.env`).
 - Khi cập nhật bot, các phòng ticket cũ trong danh mục `TICKET ĐÃ ĐÓNG` sẽ được lưu transcript/log rồi xóa; danh mục này cũng được xóa khi trống.
 
 ## 1. Tạo bot Discord
@@ -41,6 +41,9 @@ RULES_URL=link_kenh_luat
 WHITELIST_URL=link_kenh_whitelist
 WELCOME_IMAGE_URL=https://domain/banner-welcome.png
 TICKET_IMAGE_URL=https://domain/banner-ticket.png
+PUBLIC_BASE_URL=http://IP_VPS_CUA_BAN:5000
+WEB_HOST=0.0.0.0
+WEB_PORT=5000
 ```
 
 Để lấy ID role: bật Developer Mode trong Discord, bấm phải role **Hỗ trợ**, **Citizen** hoặc **New Citizen** rồi chọn **Copy Role ID**. Role bot cần nằm cao hơn cả hai role Citizen để cấp role. Bật `SERVER MEMBERS INTENT` để bot nhận thành viên mới và đồng bộ role thành viên hiện có. Không đưa file `.env` lên GitHub.
@@ -72,7 +75,7 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
-Dữ liệu SQLite, transcript HTML và ảnh được giữ trong thư mục `data/` trên VPS. Bot không mở cổng web xem transcript. Muốn đọc log, mở file `data/transcripts/<mã-ticket>/index.html` trên VPS hoặc tải thư mục đó về máy. Hãy sao lưu thư mục `data/` nếu chuyển VPS.
+Dữ liệu SQLite, transcript HTML và ảnh được giữ trong thư mục `data/` trên VPS. Mở cổng TCP 5000 trên firewall/security group để vào link dạng `http://IP_VPS:5000/logs/<mã-ticket>/`. Hãy sao lưu thư mục `data/` nếu chuyển VPS.
 
 ## Quyền lệnh
 
