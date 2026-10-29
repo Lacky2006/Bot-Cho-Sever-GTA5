@@ -32,7 +32,6 @@ class GuildSetupService:
             welcome = await self._text_channel(guild, settings.get("welcome_channel_id"), "welcome")
             goodbye = await self._text_channel(guild, settings.get("goodbye_channel_id"), "byebye")
             ticket_category = await self._category(guild, settings.get("ticket_category_id"), "🎫 HỖ TRỢ TICKET")
-            closed_category = await self._category(guild, settings.get("closed_category_id"), "🔒 TICKET ĐÃ ĐÓNG")
 
             public_overwrites = {
                 guild.default_role: discord.PermissionOverwrite(view_channel=True, send_messages=False),
@@ -62,7 +61,6 @@ class GuildSetupService:
                 welcome_channel_id=welcome.id,
                 goodbye_channel_id=goodbye.id,
                 ticket_category_id=ticket_category.id,
-                closed_category_id=closed_category.id,
                 panel_channel_id=panel.id,
                 log_channel_id=log_channel.id,
             )

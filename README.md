@@ -11,10 +11,11 @@ Bot Discord Python theo OOP dành cho server GTA5 Roleplay. Bot tự tạo kênh
 - Đăng ký Verified Citizen qua DM với 5 câu hỏi; đơn được lưu SQLite và gửi vào `#log-citizen` để nhân viên duyệt/từ chối.
 - Duyệt đơn sẽ cấp role Citizen theo `CITIZEN_ROLE_ID`; từ chối yêu cầu nhập lý do và gửi DM cho người đăng ký.
 - Khi bot khởi động, bot cấp role `New Citizen` cho thành viên hiện có; thành viên mới cũng nhận role này tự động (`NEW_CITIZEN_ROLE_ID`).
-- `+cl`: chủ ticket hoặc nhân viên hỗ trợ được đóng ticket. Kênh chuyển sang danh mục đã đóng và bị khóa với người mở.
+- `+cl`: chủ ticket hoặc nhân viên hỗ trợ đóng ticket. Bot xuất transcript HTML, ghi vào `#log-ticket`, rồi xóa phòng ticket ngay.
 - `+delete`: chỉ admin/role hỗ trợ được xóa kênh ticket ngay.
 - Transcript HTML hiển thị biệt danh trong server, avatar, nội dung và ảnh/file đính kèm đã lưu trong cùng thư mục.
-- Transcript được lưu trong `data/transcripts/` trên VPS; ticket đã đóng, file HTML, ảnh và file đính kèm tự xóa sau 15 ngày (có thể đổi bằng `TRANSCRIPT_RETENTION_DAYS` trong `.env`).
+- Transcript được lưu trong `data/transcripts/` trên VPS; log Discord, file HTML, ảnh và file đính kèm tự xóa sau 15 ngày (có thể đổi bằng `TRANSCRIPT_RETENTION_DAYS` trong `.env`).
+- Khi cập nhật bot, các phòng ticket cũ trong danh mục `TICKET ĐÃ ĐÓNG` sẽ được lưu transcript/log rồi xóa; danh mục này cũng được xóa khi trống.
 
 ## 1. Tạo bot Discord
 

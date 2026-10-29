@@ -33,6 +33,7 @@ class VRoleplayBot(commands.Bot):
         self.guild_setup = GuildSetupService(self, config, self.database)
         self.citizen = CitizenCog(self, config, self.database)
         self.community_events = CommunityEvents(self, self.config, self.database)
+        self.ticket_cog = TicketCog(self, self.config, self.database, self.tickets, self.transcripts)
         self._new_citizen_role_synced: set[int] = set()
 
     async def setup_hook(self) -> None:
@@ -41,7 +42,7 @@ class VRoleplayBot(commands.Bot):
         await self.add_cog(self.citizen)
         await restore_citizen_views(self, self.citizen)
         await self.add_cog(self.community_events)
-        await self.add_cog(TicketCog(self, self.config, self.database, self.tickets, self.transcripts))
+        await self.add_cog(self.ticket_cog)
 
     async def on_ready(self) -> None:
         if self.user is None:
@@ -50,6 +51,7 @@ class VRoleplayBot(commands.Bot):
         for guild in self.guilds:
             try:
                 await self.guild_setup.ensure_guild(guild, self.panel_view, self.citizen.panel_view)
+                await self.ticket_cog.remove_legacy_closed_category(guild)
             except discord.Forbidden:
                 logging.getLogger(__name__).exception(
                     "Bot thiếu quyền để thiết lập máy chủ %s (%s)", guild.name, guild.id
@@ -81,6 +83,7 @@ class VRoleplayBot(commands.Bot):
 
     async def on_guild_join(self, guild: discord.Guild) -> None:
         await self.guild_setup.ensure_guild(guild, self.panel_view, self.citizen.panel_view)
+        await self.ticket_cog.remove_legacy_closed_category(guild)
         await self.assign_new_citizen_to_existing_members(guild)
 
     async def on_command_error(self, ctx: commands.Context, error: commands.CommandError) -> None:

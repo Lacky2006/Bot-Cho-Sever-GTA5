@@ -265,24 +265,8 @@ class TicketCog(commands.Cog):
             await self.transcript.export(ctx.channel, ticket["slug"])
         expires = datetime.now(timezone.utc) + timedelta(days=self.config.retention_days)
         await self.db.close_ticket(ctx.channel.id, expires.isoformat())
-        owner = ctx.guild.get_member(ticket["owner_id"])
-        if owner:
-            await ctx.channel.set_permissions(owner, view_channel=True, send_messages=False, read_message_history=True)
-        settings = await self.db.get_guild_settings(ctx.guild.id)
-        category = ctx.guild.get_channel(settings.get("closed_category_id"))
-        name = ctx.channel.name
-        if not name.startswith("closed-"):
-            name = f"closed-{name}"[:100]
-        await ctx.channel.edit(
-            name=name,
-            category=category if isinstance(category, discord.CategoryChannel) else None,
-            reason=f"Đóng ticket bởi {ctx.author}",
-        )
-        await ctx.send(
-            f"🔒 Ticket đã đóng bởi {ctx.author.mention}. Transcript HTML được lưu trên VPS "
-            f"{self.config.retention_days} ngày tại `data/transcripts/{ticket['slug']}/index.html`."
-        )
         await self._send_log(ctx.guild, ticket, ctx.author, "Đã đóng")
+        await ctx.channel.delete(reason=f"Đóng ticket bởi {ctx.author}; transcript và log được giữ {self.config.retention_days} ngày")
 
     @commands.command(name="delete")
     @commands.guild_only()
@@ -324,6 +308,49 @@ class TicketCog(commands.Cog):
         )
         message = await channel.send(embed=embed)
         await self.db.execute("UPDATE tickets SET log_message_id = ? WHERE channel_id = ?", (message.id, ticket["channel_id"]))
+
+    async def remove_legacy_closed_category(self, guild: discord.Guild) -> None:
+        """Delete old archived ticket rooms while retaining their HTML and log messages."""
+        settings = await self.db.get_guild_settings(guild.id)
+        category = guild.get_channel(settings.get("closed_category_id")) if settings.get("closed_category_id") else None
+        if not isinstance(category, discord.CategoryChannel):
+            category = discord.utils.get(guild.categories, name="🔒 TICKET ĐÃ ĐÓNG")
+        if not isinstance(category, discord.CategoryChannel):
+            if settings.get("closed_category_id") is not None:
+                await self.db.update_guild_settings(guild.id, closed_category_id=None)
+            return
+
+        for channel in tuple(category.channels):
+            if not isinstance(channel, discord.TextChannel):
+                continue
+            ticket = await self.db.get_ticket(channel.id)
+            if not ticket:
+                # Keep any channel not owned by the ticket system; the old category
+                # can then be removed manually if it still contains custom channels.
+                continue
+            if ticket["status"] == "expired":
+                await channel.delete(reason="Xóa phòng ticket lưu trữ cũ đã hết hạn")
+                continue
+
+            transcript_file = self.transcript.config.transcript_dir / ticket["slug"] / "index.html"
+            if not transcript_file.is_file():
+                await self.transcript.export(channel, ticket["slug"])
+
+            status = ticket["status"] if ticket["status"] in {"closed", "deleted"} else "closed"
+            if not ticket.get("expires_at"):
+                expires = datetime.now(timezone.utc) + timedelta(days=self.config.retention_days)
+                await self.db.close_ticket(channel.id, expires.isoformat(), status)
+                ticket = await self.db.get_ticket(channel.id) or ticket
+            if not ticket.get("log_message_id") and guild.me:
+                action = "Đã xóa" if status == "deleted" else "Đã đóng"
+                await self._send_log(guild, ticket, guild.me, action)
+
+            await channel.delete(reason="Lưu transcript và log; không giữ phòng ticket đã đóng")
+
+        if not category.channels:
+            await category.delete(reason="Không còn dùng danh mục ticket đã đóng")
+        await self.db.update_guild_settings(guild.id, closed_category_id=None)
+        log.info("Đã dọn danh mục ticket đã đóng cũ tại guild %s", guild.id)
 
     @tasks.loop(hours=1)
     async def cleanup_expired(self) -> None:
