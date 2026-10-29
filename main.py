@@ -51,13 +51,20 @@ class VRoleplayBot(commands.Bot):
         for guild in self.guilds:
             try:
                 await self.guild_setup.ensure_guild(guild, self.panel_view, self.citizen.panel_view)
-                await self.ticket_cog.remove_legacy_closed_category(guild)
             except discord.Forbidden:
                 logging.getLogger(__name__).exception(
                     "Bot thiếu quyền để thiết lập máy chủ %s (%s)", guild.name, guild.id
                 )
             except discord.HTTPException:
                 logging.getLogger(__name__).exception("Không thể thiết lập máy chủ %s", guild.id)
+            try:
+                await self.ticket_cog.remove_legacy_closed_category(guild)
+            except discord.Forbidden:
+                logging.getLogger(__name__).exception(
+                    "Bot thiếu quyền để dọn phòng ticket cũ trong máy chủ %s (%s)", guild.name, guild.id
+                )
+            except discord.HTTPException:
+                logging.getLogger(__name__).exception("Không thể dọn phòng ticket cũ trong máy chủ %s", guild.id)
             if guild.id not in self._new_citizen_role_synced:
                 await self.assign_new_citizen_to_existing_members(guild)
 

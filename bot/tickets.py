@@ -296,7 +296,8 @@ class TicketCog(commands.Cog):
         if not isinstance(channel, discord.TextChannel):
             return
         owner = guild.get_member(ticket["owner_id"])
-        owner_name = owner.display_name if owner else f"ID {ticket['owner_id']}"
+        owner_id = ticket["owner_id"]
+        owner_name = owner.display_name if owner else (f"ID {owner_id}" if owner_id > 0 else "Không xác định (phòng ticket cũ)")
         embed = discord.Embed(title=f"{action} ticket", colour=discord.Colour.orange())
         embed.add_field(name="Người tạo", value=owner_name)
         embed.add_field(name="Loại", value=ticket["ticket_type"])
@@ -325,9 +326,21 @@ class TicketCog(commands.Cog):
                 continue
             ticket = await self.db.get_ticket(channel.id)
             if not ticket:
-                # Keep any channel not owned by the ticket system; the old category
-                # can then be removed manually if it still contains custom channels.
-                continue
+                # Older installs may have lost the matching SQLite row. Recover
+                # the owner/type from the channel topic, save the transcript, and
+                # create a retention record before removing this archived room.
+                match = re.search(r"VROLEPLAY\s+owner=(\d+)\s+type=([a-z0-9_-]+)", channel.topic or "", re.IGNORECASE)
+                owner_id = int(match.group(1)) if match else 0
+                ticket_type = match.group(2).lower() if match else "legacy"
+                slug = uuid.uuid4().hex
+                await self.transcript.export(channel, slug)
+                await self.db.create_ticket(guild.id, channel.id, owner_id, ticket_type, slug)
+                expires = datetime.now(timezone.utc) + timedelta(days=self.config.retention_days)
+                await self.db.close_ticket(channel.id, expires.isoformat())
+                ticket = await self.db.get_ticket(channel.id)
+                if not ticket:
+                    log.error("Không thể tạo bản ghi lưu trữ cho kênh cũ %s", channel.id)
+                    continue
             if ticket["status"] == "expired":
                 await channel.delete(reason="Xóa phòng ticket lưu trữ cũ đã hết hạn")
                 continue
