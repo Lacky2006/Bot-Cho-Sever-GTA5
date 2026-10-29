@@ -115,10 +115,10 @@ class GuildSetupService:
             if overwrites is not None:
                 await existing.edit(category=category, overwrites=overwrites, reason="Đồng bộ cấu hình V Roleplay Bot")
             return existing
-        return await guild.create_text_channel(
-            name, category=category, overwrites=overwrites,
-            reason="Thiết lập tự động V Roleplay Bot",
-        )
+        create_options = {"category": category, "reason": "Thiết lập tự động V Roleplay Bot"}
+        if overwrites is not None:
+            create_options["overwrites"] = overwrites
+        return await guild.create_text_channel(name, **create_options)
 
     async def _ensure_panel(
         self, channel: discord.TextChannel, message_id: int | None, view: discord.ui.View
