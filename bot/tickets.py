@@ -281,11 +281,10 @@ class TicketCog(commands.Cog):
             await ctx.reply("Chỉ quản trị viên hoặc role hỗ trợ mới được xóa ticket.", mention_author=False)
             return
 
-        async with ctx.typing():
-            await self.transcript.export(ctx.channel, ticket["slug"])
-        expires = datetime.now(timezone.utc) + timedelta(days=self.config.retention_days)
-        await self.db.close_ticket(ctx.channel.id, expires.isoformat(), "deleted")
-        await self._send_log(ctx.guild, ticket, ctx.author, "Đã xóa")
+        # +delete xóa vĩnh viễn ngay: không xuất HTML, không gửi log và
+        # không giữ bản ghi để người dùng có thể mở ticket mới.
+        self.transcript.delete(ticket["slug"])
+        await self.db.delete_ticket(ctx.channel.id)
         await ctx.channel.delete(reason=f"Xóa ticket bởi {ctx.author}")
 
     async def _send_log(
@@ -348,19 +347,24 @@ class TicketCog(commands.Cog):
             if ticket["status"] == "expired":
                 await channel.delete(reason="Xóa phòng ticket lưu trữ cũ đã hết hạn")
                 continue
+            if ticket["status"] == "deleted":
+                # Ticket từng bị +delete không được giữ transcript hoặc log.
+                self.transcript.delete(ticket["slug"])
+                await self.db.delete_ticket(channel.id)
+                await channel.delete(reason="Dọn ticket đã bị xóa vĩnh viễn")
+                continue
 
             transcript_file = self.transcript.config.transcript_dir / ticket["slug"] / "index.html"
             if not transcript_file.is_file():
                 await self.transcript.export(channel, ticket["slug"])
 
-            status = ticket["status"] if ticket["status"] in {"closed", "deleted"} else "closed"
+            status = ticket["status"] if ticket["status"] == "closed" else "closed"
             if not ticket.get("expires_at"):
                 expires = datetime.now(timezone.utc) + timedelta(days=self.config.retention_days)
                 await self.db.close_ticket(channel.id, expires.isoformat(), status)
                 ticket = await self.db.get_ticket(channel.id) or ticket
             if not ticket.get("log_message_id") and guild.me:
-                action = "Đã xóa" if status == "deleted" else "Đã đóng"
-                await self._send_log(guild, ticket, guild.me, action)
+                await self._send_log(guild, ticket, guild.me, "Đã đóng")
 
             await channel.delete(reason="Lưu transcript và log; không giữ phòng ticket đã đóng")
 

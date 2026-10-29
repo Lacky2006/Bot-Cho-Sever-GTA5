@@ -136,6 +136,9 @@ class Database:
             (status, utc_iso(), expires_at, channel_id),
         )
 
+    async def delete_ticket(self, channel_id: int) -> None:
+        await self.execute("DELETE FROM tickets WHERE channel_id = ?", (channel_id,))
+
     async def create_citizen_application(self, guild_id: int, user_id: int, answers_json: str) -> int:
         return await self.execute(
             "INSERT INTO citizen_applications(guild_id, user_id, answers_json, created_at) VALUES (?, ?, ?, ?)",
