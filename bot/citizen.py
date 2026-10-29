@@ -21,9 +21,11 @@ QUESTIONS = (
 
 
 class CitizenStartView(discord.ui.View):
-    def __init__(self, cog: "CitizenCog") -> None:
+    def __init__(self, cog: "CitizenCog", guild_id: int) -> None:
         super().__init__(timeout=None)
         self.cog = cog
+        self.guild_id = guild_id
+        self.children[0].custom_id = f"vroleplay:citizen:start:{guild_id}"
 
     @discord.ui.button(
         label="Start",
@@ -32,7 +34,7 @@ class CitizenStartView(discord.ui.View):
         custom_id="vroleplay:citizen:start",
     )
     async def start(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
-        await self.cog.begin_application(interaction)
+        await self.cog.begin_application(interaction, self.guild_id)
 
 
 class CitizenPanelView(discord.ui.View):
@@ -50,21 +52,7 @@ class CitizenPanelView(discord.ui.View):
         if not interaction.guild:
             await interaction.response.send_message("Nút này chỉ dùng trong máy chủ.", ephemeral=True)
             return
-        try:
-            dm = interaction.user.dm_channel or await interaction.user.create_dm()
-            embed = discord.Embed(
-                title="Bắt đầu đăng ký Citizen",
-                description="Nhấn vào đây để bắt đầu đăng ký Citizen. Bot sẽ lần lượt gửi 5 câu hỏi trong DM.",
-                colour=discord.Colour.magenta(),
-            )
-            await dm.send(embed=embed, view=CitizenStartView(self.cog))
-        except discord.Forbidden:
-            await interaction.response.send_message(
-                "Mình không gửi được DM. Hãy bật tin nhắn riêng từ thành viên server rồi thử lại.",
-                ephemeral=True,
-            )
-            return
-        await interaction.response.send_message("Mình đã gửi hướng dẫn vào DM cho bạn.", ephemeral=True)
+        await self.cog.send_start_dm(interaction)
 
 
 class CitizenReviewView(discord.ui.View):
@@ -188,24 +176,62 @@ class CitizenCog(commands.Cog):
                     message_id=application["log_message_id"],
                 )
 
+    @commands.Cog.listener()
+    async def on_interaction(self, interaction: discord.Interaction) -> None:
+        if interaction.type is not discord.InteractionType.component or not interaction.data:
+            return
+        custom_id = interaction.data.get("custom_id", "")
+        if custom_id == "vroleplay:citizen:open":
+            await self.send_start_dm(interaction)
+        elif custom_id.startswith("vroleplay:citizen:start:"):
+            try:
+                guild_id = int(custom_id.rsplit(":", 1)[1])
+            except ValueError:
+                await interaction.response.send_message("Không đọc được mã server trong nút Start.", ephemeral=True)
+                return
+            await self.begin_application(interaction, guild_id)
+
+    async def send_start_dm(self, interaction: discord.Interaction) -> None:
+        if not interaction.guild_id:
+            await interaction.response.send_message("Nút này chỉ dùng trong máy chủ.", ephemeral=True)
+            return
+        try:
+            dm = interaction.user.dm_channel or await interaction.user.create_dm()
+            embed = discord.Embed(
+                title="Bắt đầu đăng ký Citizen",
+                description="Nhấn vào đây để bắt đầu đăng ký Citizen. Bot sẽ lần lượt gửi 5 câu hỏi trong DM.",
+                colour=discord.Colour.magenta(),
+            )
+            await dm.send(embed=embed, view=CitizenStartView(self, interaction.guild_id))
+            log.info("Đã gửi DM bắt đầu Citizen cho user_id=%s guild_id=%s", interaction.user.id, interaction.guild_id)
+        except discord.Forbidden:
+            log.warning("Không thể gửi DM Citizen cho user_id=%s", interaction.user.id)
+            await interaction.response.send_message(
+                "Mình không gửi được DM. Hãy bật tin nhắn riêng từ thành viên server rồi thử lại.",
+                ephemeral=True,
+            )
+            return
+        if not interaction.response.is_done():
+            await interaction.response.send_message("Mình đã gửi hướng dẫn vào DM cho bạn.", ephemeral=True)
+
     def is_staff(self, member: discord.Member) -> bool:
         return member.guild_permissions.administrator or any(
             role.id == self.config.support_role_id for role in member.roles
         )
 
-    async def begin_application(self, interaction: discord.Interaction) -> None:
+    async def begin_application(self, interaction: discord.Interaction, guild_id: int) -> None:
         user = interaction.user
-        if not isinstance(user, discord.User) or not interaction.guild_id:
+        if not isinstance(user, discord.User):
             await interaction.response.send_message("Không lấy được thông tin server.", ephemeral=True)
             return
-        existing = await self.db.pending_citizen_application(interaction.guild_id, user.id)
+        log.info("Bắt đầu hỏi Citizen user_id=%s guild_id=%s", user.id, guild_id)
+        existing = await self.db.pending_citizen_application(guild_id, user.id)
         if existing:
-            await interaction.response.send_message("Bạn đang có đơn Citizen chờ duyệt.", ephemeral=True)
+            await interaction.response.send_message("Bạn đang có đơn Citizen chờ duyệt.")
             return
         await interaction.response.send_message(
             "Bắt đầu đăng ký Citizen. Hãy trả lời từng câu hỏi ngay trong DM này. "
-            "Mỗi câu có tối đa 10 phút để trả lời.",
-            ephemeral=True,
+            "Mỗi câu có tối đa 10 phút để trả lời."
         )
         answers: list[str] = []
         try:
@@ -232,11 +258,11 @@ class CitizenCog(commands.Cog):
             return
 
         application_id = await self.db.create_citizen_application(
-            interaction.guild_id, user.id, json.dumps(answers, ensure_ascii=False)
+            guild_id, user.id, json.dumps(answers, ensure_ascii=False)
         )
         application = await self.db.get_citizen_application(application_id)
         if application:
-            await self.send_application_log(interaction.guild_id, application)
+            await self.send_application_log(guild_id, application)
         try:
             await user.send("Đã nhận đủ câu trả lời! Đơn của bạn đã được gửi đến đội ngũ xét duyệt.")
         except discord.Forbidden:
@@ -283,7 +309,5 @@ class CitizenCog(commands.Cog):
 
 
 async def restore_citizen_views(bot: commands.Bot, cog: CitizenCog) -> None:
-    bot.add_view(cog.panel_view)
-    bot.add_view(CitizenStartView(cog))
     await cog.restore_review_views()
 
