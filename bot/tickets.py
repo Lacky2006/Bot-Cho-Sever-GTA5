@@ -98,27 +98,23 @@ class TicketPanelView(discord.ui.View):
         super().__init__(timeout=None)
         self.service = service
 
-    async def open_form(self, interaction: discord.Interaction, key: str) -> None:
-        if not interaction.guild or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("Nút này chỉ dùng trong máy chủ.", ephemeral=True)
-            return
-        await interaction.response.send_modal(TicketModal(self.service, KINDS[key]))
-
     @discord.ui.button(label="Hỗ trợ", emoji="🛟", style=discord.ButtonStyle.primary, custom_id="vroleplay:ticket:support")
     async def support(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
-        await self.open_form(interaction, "support")
+        # Ticket buttons are routed by TicketCog.on_interaction so old panels
+        # keep working after restarts without registering duplicate callbacks.
+        return
 
     @discord.ui.button(label="Tố cáo", emoji="🚨", style=discord.ButtonStyle.danger, custom_id="vroleplay:ticket:report")
     async def report(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
-        await self.open_form(interaction, "report")
+        return
 
     @discord.ui.button(label="Donate", emoji="💎", style=discord.ButtonStyle.success, custom_id="vroleplay:ticket:donate")
     async def donate(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
-        await self.open_form(interaction, "donate")
+        return
 
     @discord.ui.button(label="Báo lỗi", emoji="🐛", style=discord.ButtonStyle.secondary, custom_id="vroleplay:ticket:bug")
     async def bug(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
-        await self.open_form(interaction, "bug")
+        return
 
 
 class TicketService:
@@ -133,6 +129,10 @@ class TicketService:
         self, interaction: discord.Interaction, kind: TicketKind, answers: list[tuple[str, str]]
     ) -> None:
         if not interaction.guild or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message(
+                "Không xác định được máy chủ để tạo ticket. Hãy mở form từ kênh ticket trong server.",
+                ephemeral=True,
+            )
             return
         await interaction.response.defer(ephemeral=True, thinking=True)
         guild, member = interaction.guild, interaction.user
@@ -153,6 +153,10 @@ class TicketService:
                 return
             me = guild.me
             if me is None:
+                await interaction.followup.send(
+                    "Không lấy được thông tin bot trong server. Hãy thử lại sau hoặc báo quản trị viên.",
+                    ephemeral=True,
+                )
                 return
             support_role = guild.get_role(self.config.support_role_id)
             overwrites: dict[discord.Role | discord.Member, discord.PermissionOverwrite] = {
@@ -211,6 +215,35 @@ class TicketCog(commands.Cog):
 
     def cog_unload(self) -> None:
         self.cleanup_expired.cancel()
+
+    @commands.Cog.listener()
+    async def on_interaction(self, interaction: discord.Interaction) -> None:
+        """Route ticket panel buttons directly, including messages from older bot versions."""
+        if interaction.type is not discord.InteractionType.component or not interaction.data:
+            return
+        custom_id = interaction.data.get("custom_id", "")
+        if not custom_id.startswith("vroleplay:ticket:"):
+            return
+
+        key = custom_id.rsplit(":", 1)[-1]
+        kind = KINDS.get(key)
+        if kind is None:
+            return
+        log.info(
+            "Nhận nút ticket: type=%s user_id=%s guild_id=%s channel_id=%s",
+            key, interaction.user.id, interaction.guild_id, interaction.channel_id,
+        )
+        if not interaction.guild or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("Nút này chỉ dùng trong máy chủ.", ephemeral=True)
+            return
+        try:
+            await interaction.response.send_modal(TicketModal(self.service, kind))
+        except discord.HTTPException:
+            log.exception("Không thể mở form ticket type=%s user_id=%s", key, interaction.user.id)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "Không mở được biểu mẫu ticket. Hãy thử lại sau.", ephemeral=True
+                )
 
     @commands.command(name="cl")
     @commands.guild_only()
